@@ -196,31 +196,44 @@ static void *find_fit(size_t asize){
         }
     }
     return NULL; /*no fit*/
-    // for(bp=heap_listp; GET_SIZE(HDRP(bp)) > 0; bp=NEXT_BLKP(bp)){
-    //     if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
-    //         //블록의 헤더와 페이로드가 서로 다른 메모리 주소에 위치할 수 있기 때문
-    //         return bp;
-    //     }
-    // }
-    // return NULL; 
 }
 
 //요구 메모리를 할당할 수 있는 가용블록을 할당함 , 분할 가능 시 분할
 static void place(void *bp, size_t asize){
     size_t csize = GET_SIZE(HDRP(bp)); //현재 블록의 크기
+    void *tmp_succ = SUCC_freep(bp); //현재 블록의 연결된 다음 주소값
+    void *tmp_pred = PRED_freep(bp); //현재 블록의 연결된 이전 주소값
 
     //csize - asize 
     if((csize - asize) >= (2*DSIZE)){ //분할 후 남은 블록의 크기가 최소블록 크기(16bytes) 일 시
         PUT(HDRP(bp),PACK(asize,1));
         PUT(FTRP(bp),PACK(asize,1));
+        SUCC_freep(bp) = NULL; //연결끊기
+        PRED_freep(bp) = NULL; //연결끊기
         bp = NEXT_BLKP(bp);
 
         PUT(HDRP(bp),PACK(csize - asize,0)); //남은 공간 가용 상태 변경
         PUT(FTRP(bp),PACK(csize - asize,0));
+
+        putFreeBlock(bp);
     }
     else{
-        PUT(HDRP(bp),PACK(csize,1));
-        PUT(FTRP(bp),PACK(csize,1));
+        if(tmp_pred == NULL){ //free_list에 첫번째니깐 
+            PUT(HDRP(bp),PACK(csize,1));
+            PUT(FTRP(bp),PACK(csize,1));
+            free_listp = tmp_succ;
+            SUCC_freep(bp) = NULL;
+        }
+        else{ // free_list의 중간에 위치한 블록을 할당함
+            PUT(HDRP(bp),PACK(csize,1));
+            PUT(FTRP(bp),PACK(csize,1));
+
+            SUCC_freep(tmp_pred) =tmp_pred;
+            PRED_freep(tmp_succ) = tmp_pred;
+
+            SUCC_freep(bp) = NULL; //연결끊기
+            PRED_freep(bp) = NULL; //연결끊기
+        }
     }
 }
 
@@ -233,6 +246,7 @@ void mm_free(void *bp) // 해당 주소의 블록을 반환
 
     PUT(HDRP(bp), PACK(size,0));
     PUT(FTRP(bp), PACK(size,0));
+
     coalesce(bp);
 }
 
