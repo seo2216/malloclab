@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            //"cwd": "/home/ubuntu/malloclab",
+            "binaryPath": "/home/ubuntu/malloclab/mdriver",
+            "binaryArgs": []
+        }
+    ]
+}
