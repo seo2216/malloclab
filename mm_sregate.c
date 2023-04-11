@@ -94,7 +94,7 @@ int mm_init(void)
 static int find_index(size_t size){
    // printf("find_index() \n");
 
-    if(size >= (1<<4) && size <(1<<5)){
+    if(size <(1<<5)){
         //return  root_array[5];
         return 4;
     } 
@@ -122,16 +122,14 @@ static int find_index(size_t size){
         //return root_array[11];
         return 10;
     }
-    else if(size >= (1<<11) && size <(1<<12)){
+    else{
        // return root_array[12];
         return 11;
-    }                             
+    } 
 }
 
 //새 free블록을 free list의 처음에 추가=>pred는 항상 null(맨앞이니깐)
 static void putFreeBlock(void *bp){
-
-  // printf("putFreeBlock() \n");
 
     size_t bp_size = GET_SIZE(HDRP(bp)); //1. bp_size를 가져옴
 
@@ -155,41 +153,36 @@ static void putFreeBlock(void *bp){
         PRED_freep(bp) = &root_array[root_array_index]; //맨 앞 블럭에 이전은 배열의 주소를 가리킴
         SUCC_freep(bp) = root_bp; //root_bp가 가리키고 있던 주소
         PRED_freep(root_bp) = bp; //root_bp가 가리키고 있던 주소의 이전 블록은 bp
-        PUT(root_bp,(char*)(bp)); //root는 bp 주소를 가리킴
+        //PUT(root_bp,(char*)(bp)); //root는 bp 주소를 가리킴
+        root_array[root_array_index] = bp;
     }
 }
 
 static void removeFreeBlock(void *bp){
 
-  // printf("removeFreeBlock() \n");
+//   printf("removeFreeBlock() \n");
 
     size_t bp_size = GET_SIZE(HDRP(bp)); //1. bp_size를 가져옴
     int root_array_index = find_index(bp_size); //해당 크기에 해당하는 root_array index가져옴
     //char* root_bp = root_array[root_array_index];
 
-    //char *next_block = SUCC_freep(bp);
-    //char *pre_block = PRED_freep(bp);
-//    printf("bp: %x\n", bp);
-   // printf("root_bp: %x\n", root_bp);
-    // printf("root_array_index: %d\n", root_array_index);
-    // printf("root_array[root_array_index]: %x\n", root_array[root_array_index]);
-    // printf("next_block: %x\n", next_block);
-    // printf("pre_block: %x\n", pre_block);
-    // printf("확인: %x\n", GET(bp));
-
     if(bp == root_array[root_array_index]){ //freeblock 맨 앞이면
         root_array[root_array_index] = SUCC_freep(bp);
         if(SUCC_freep(bp) != NULL){
-            PRED_freep(SUCC_freep(bp)) = root_array[root_array_index]; 
+            PRED_freep(SUCC_freep(bp)) = &root_array[root_array_index]; 
         }
     }
     else{ //중간이면
         if(SUCC_freep(bp) == NULL){ //맨 끝이면
-            SUCC_freep(PRED_freep(bp)) == NULL;
+    //    printf("bp: %x\n");
+     //   printf("SUCC_freep(bp): %x\n",SUCC_freep(bp));
+     //   printf("PRED_freep(bp): %x\n",PRED_freep(bp));
+            SUCC_freep(PRED_freep(bp)) = NULL;
         }
-        SUCC_freep(PRED_freep(bp)) = SUCC_freep(bp);
+        SUCC_freep(PRED_freep(bp)) = SUCC_freep(bp); //중간일때
+
         if(SUCC_freep(bp) != NULL){
-    PRED_freep(SUCC_freep(bp)) = PRED_freep(bp);
+            PRED_freep(SUCC_freep(bp)) = PRED_freep(bp);
         }
     }
 }
@@ -209,7 +202,7 @@ static void *coalesce(void *bp){
 
     if(prev_alloc && next_alloc){   
      /*case1 :앞뒤블록이 모두 할당된 상태이면 합병할 블록 없으므로 현재블록을 연결리스트 첫번째에 연결*/
-       // printf("coalesce case1\n");
+        //printf("coalesce case1\n");
          putFreeBlock(bp);         
          return bp;
      }
@@ -228,7 +221,8 @@ static void *coalesce(void *bp){
     else if (!prev_alloc && next_alloc)   
     {
        // printf("coalesce case3\n");
-        char *pred_block_bp = PREV_BLKP(bp); //앞블록 주소 가져오기
+       // printf("bp : %x\n",bp);
+        //printf("PREV_BLKP(bp) : %x\n",PREV_BLKP(bp));
         removeFreeBlock(PREV_BLKP(bp));//앞블록 freeList 연결 끊기
         size += GET_SIZE(HDRP(PREV_BLKP(bp))); //이전 블록사이즈를 더함
         PUT(FTRP(bp), PACK(size,0));
@@ -329,10 +323,7 @@ static void *find_fit(size_t asize){
         if(root_array[i] == NULL){
             continue;
         }
-        printf("i: %d\n",i);
-       printf("root_array[i] %x\n", root_array[i]);
-       printf("SUCC_freep(bp) %x\n", SUCC_freep(bp));
-        for(bp=root_array[i]; SUCC_freep(bp) != NULL; bp=SUCC_freep(bp)){
+        for(bp=root_array[i]; bp != NULL; bp=SUCC_freep(bp)){
             if(asize <=GET_SIZE(HDRP(bp))){
                 return bp;
             }
