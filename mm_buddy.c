@@ -91,9 +91,9 @@ static int find_index(size_t size){
   // printf("find_index() \n");
 
    for (int i = 3; i<NUM_LIST; i++){
-        if(i ==16){
-            return 16;
-        }
+        // if(i ==16){
+        //     return 16;
+        // }
         if(size <= 1<<i+1){
             return i;
         }
@@ -108,7 +108,7 @@ static int find_index(size_t size){
     // else if(size <=(1<<6)){
     //     return 5;
     // }
-    // else if(size <=(1<<7)){
+    // else if(size <=(1<<7)){ 
     //     return 6;
     // }
     // else if(size <=(1<<8)){
@@ -127,15 +127,14 @@ static int find_index(size_t size){
     //     return 11;
     // } 
 }
-// static int find_size(size_t size){
-//    // printf("find_size() \n");
-//     for(int i=4; i<NUM_LIST;i++){ //NUM_LIST+1 ???
-//         if(size <= (1<<i)){
-//             return (1<<i);
-//         }
-//     }
-//     return NULL;
-// }
+static int find_size(size_t size){
+    size_t asize = DSIZE;
+    while (size +DSIZE > asize)
+        {
+            asize <<= 1;
+        }
+        return asize;
+}
 
 static void putFreeBlock(void *bp){
 
@@ -284,12 +283,12 @@ void *mm_malloc(size_t size)
         asize = 2*DSIZE; //최소 크기인 2*DSIZE(헤더, 푸터, 최소 1워드 크기에 데이터)로 할당
     else{
     //find_2^n size 함수 호출해야함!!!!!!
-   // asize = find_size(size); //2^n size
-        asize = 2*DSIZE;
-        while (size +DSIZE > asize)
-        {
-            asize <<= 1;
-        }
+        asize = find_size(size); //2^n size
+        //asize = DSIZE;
+        // while (size +DSIZE > asize)
+        // {
+        //     asize <<= 1;
+        // }
     }
 
     //printf("asize %d\n",asize);
