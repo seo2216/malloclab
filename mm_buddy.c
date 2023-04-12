@@ -68,7 +68,7 @@ static char *root_array[NUM_LIST];
 int mm_init(void)
 {
     /*create the initial empty heap*/
-   //printf("mm_init() \n");
+   printf("mm_init() \n");
 
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
         return -1;
@@ -82,17 +82,13 @@ int mm_init(void)
     for(int i = 0; i<NUM_LIST; i++){
         root_array[i] = NULL;
     }
-    // for(int i = 0; i<NUM_LIST; i++){
-    //     printf("root_array : %d\n", root_array[i]);
-    // }
-    /*Extend the empty heap with a free block of CHUNKSIZE bytes */
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL) 
         return -1;
     return 0;
 }
 
 static int find_index(size_t size){
-   // printf("find_index() \n");
+   printf("find_index() \n");
 
 
 //    for (int i = 0; i<NUM_LIST; i++){
@@ -102,52 +98,49 @@ static int find_index(size_t size){
 //         return NULL;
 //    }
 
-    if(size <(1<<5)){
-        //return  root_array[5];
+    if(size >= (1<<4) && size <(1<<5)){
         return 4;
     } 
     else if(size >= (1<<5) && size <(1<<6)){
-       // return root_array[6];
         return 5;
     }
     else if(size >= (1<<6) && size <(1<<7)){
-        //return root_array[7];
         return 6;
     }
     else if(size >= (1<<7) && size <(1<<8)){
-        //return root_array[8];
         return 7;
     }
     else if(size >= (1<<8) && size <(1<<9)){
-        //return root_array[9];
         return 8;
     }
     else if(size >= (1<<9) && size <(1<<10)){
-        //return root_array[10];
         return 9;
     }
     else if(size >= (1<<10) && size <(1<<11)){
-        //return root_array[11];
         return 10;
     }
-    else{
-       // return root_array[12];
+    else if(size >= (1<<11) && size <(1<<12)){
         return 11;
     } 
 }
+static int find_size(size_t size){
+    printf("find_size() \n");
+    for(int i=4; i<NUM_LIST;i++){ //NUM_LIST+1 ???
+        if(size <= (1<<i)){
+            return (1<<i);
+        }
+    }
+    return NULL;
+}
 
-//새 free블록을 free list의 처음에 추가=>pred는 항상 null(맨앞이니깐)
 static void putFreeBlock(void *bp){
+
+    printf("putFreeBlock() \n");
 
     size_t bp_size = GET_SIZE(HDRP(bp)); //1. bp_size를 가져옴
 
     int root_array_index = find_index(bp_size); //해당 크기에 해당하는 root_array index가져옴
-    // printf("bp_size: %x\n", bp_size);
-    // printf("root_array_index: %d\n", root_array_index);
     char* root_bp = root_array[root_array_index];//bp_size에 해당하는 root_array에 담겨있는 값을 가져옴
-    // printf("root_array[root_array_index]: %x\n", root_array[root_array_index]);
-    // printf("&root_array[root_array_index]: %x\n", &root_array[root_array_index]);
-    // printf("bp: %x\n", bp);
 
     if(root_bp == NULL){
         //root가 null => 해당 사이즈에 맞는 free block이 아무것도 없다!
@@ -168,11 +161,10 @@ static void putFreeBlock(void *bp){
 
 static void removeFreeBlock(void *bp){
 
-//   printf("removeFreeBlock() \n");
+    printf("removeFreeBlock() \n");
 
     size_t bp_size = GET_SIZE(HDRP(bp)); //1. bp_size를 가져옴
     int root_array_index = find_index(bp_size); //해당 크기에 해당하는 root_array index가져옴
-    //char* root_bp = root_array[root_array_index];
 
     if(bp == root_array[root_array_index]){ //freeblock 맨 앞이면
         root_array[root_array_index] = SUCC_freep(bp);
@@ -182,9 +174,6 @@ static void removeFreeBlock(void *bp){
     }
     else{ //중간이면
         if(SUCC_freep(bp) == NULL){ //맨 끝이면
-    //    printf("bp: %x\n");
-     //   printf("SUCC_freep(bp): %x\n",SUCC_freep(bp));
-     //   printf("PRED_freep(bp): %x\n",PRED_freep(bp));
             SUCC_freep(PRED_freep(bp)) = NULL;
         }
         SUCC_freep(PRED_freep(bp)) = SUCC_freep(bp); //중간일때
@@ -198,9 +187,7 @@ static void removeFreeBlock(void *bp){
 //블록 연결하기
 static void *coalesce(void *bp){
 
-//printf("coalesce() \n");
-
-    //할당 해제할 메모리 주소 받음 -> 해제할 메모리 주소의 앞뒤 블록을 확인
+printf("coalesce() \n");
     size_t prev_alloc;
     size_t next_alloc;
 
@@ -208,57 +195,51 @@ static void *coalesce(void *bp){
     next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp)); 
 
-    if(prev_alloc && next_alloc){   
-     /*case1 :앞뒤블록이 모두 할당된 상태이면 합병할 블록 없으므로 현재블록을 연결리스트 첫번째에 연결*/
-        //printf("coalesce case1\n");
-         putFreeBlock(bp);         
-         return bp;
-     }
-    /*case2:앞블록 할당, 뒤 블록 할당 X => 현재블록과 뒤블록 합병*/
-    else if(prev_alloc && !next_alloc){       
-      //  printf("coalesce case2\n");
-        //1. 뒤블록 free_list에 제거
-        char *next_block_bp = NEXT_BLKP(bp);
-        removeFreeBlock(NEXT_BLKP(bp)); //뒤 블록 연결해제
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp),PACK(size,0));
-        PUT(FTRP(bp),PACK(size,0)); 
-        putFreeBlock(bp);
+
+    //next_bp = bp+size; 다음 블록 주소
+    // 현재 bp와 size 를 '&' 비트 연산한 결과의 맨 첫자리 가 1이면 난 오른쪽, 0이면 왼쪽
+
+    //while 돌면서 계속 확인하디....
+    while(1){
+        if(!(((char*)bp-(heap_listp+4)) & size)){ //AND연산 결과가 0 : 나는 왼쪽임
+            // buddy인 경우: 옆 블록이 free이고, size가 같다면 합쳐줌
+            if(GET_ALLOC(HDRP((long*)bp+size)) == 0 && GET_SIZE(HDRP((long*)bp+size)) == size){
+                removeFreeBlock((long*)bp+size);
+                PUT(HDRP(bp), PACK(2*size,0));
+                PUT(FTRP(bp), PACK(2*size,0));
+                putFreeBlock(bp);
+            }
+            else{ //buddy가 아닌 경우
+                putFreeBlock(bp);
+                break;
+            }
+        }
+        else{ //나는 오른쪽
+            //내 왼쪽이 buddy라면
+            printf("HDRP((long*)bp-size): %x\n",HDRP((long*)bp-size));
+            printf("HDRP((long*)bp-size): %x\n",HDRP(bp));
+            printf("GET_SIZE(HDRP((long*)bp-size)): %x\n",GET_SIZE(HDRP((long*)bp-size)));
+            // printf("GET_ALLOC(HDRP((long*)bp-size)): %d\n",GET_ALLOC(HDRP((long*)bp-size)));
+            // printf("GET_SIZE(HDRP((long*)bp-size)): %d\n",GET_SIZE(HDRP((long*)bp-size)));
+            if(GET_ALLOC(HDRP((long*)bp-size)) == 0 && GET_SIZE(HDRP((long*)bp-size)) == size){
+                removeFreeBlock((long*)bp-size);
+                PUT(HDRP((long*)bp-size), PACK(2*size,0));
+                PUT(FTRP(bp), PACK(2*size,0));       
+                putFreeBlock((long*)bp-size);
+            }
+            else{
+                putFreeBlock(bp);
+                break;
+            }
+
+        }
     }
-    /*case3: 앞블록 할당X, 뒤 블록 할당 => 현재블록과 앞블록 합병*/
-    else if (!prev_alloc && next_alloc)   
-    {
-       // printf("coalesce case3\n");
-       // printf("bp : %x\n",bp);
-        //printf("PREV_BLKP(bp) : %x\n",PREV_BLKP(bp));
-        removeFreeBlock(PREV_BLKP(bp));//앞블록 freeList 연결 끊기
-        size += GET_SIZE(HDRP(PREV_BLKP(bp))); //이전 블록사이즈를 더함
-        PUT(FTRP(bp), PACK(size,0));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
-        bp = PREV_BLKP(bp);
-        putFreeBlock(bp);
-    }
-    else{   /*case4*/
-      //  printf("coalesce case4\n");
-        char *pred_block_bp = PREV_BLKP(bp); //앞블록 주소 가져오기
-        char *next_block_bp = NEXT_BLKP(bp); //뒤블록 주소 가져오기
-        removeFreeBlock(PREV_BLKP(bp));
-        removeFreeBlock(NEXT_BLKP(bp));
-        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size,0));
-        PUT(FTRP(NEXT_BLKP(bp)), PACK(size,0));
-        bp = PREV_BLKP(bp);
-        putFreeBlock(bp);
-    }   
     return bp;
 }
  
-/*
-1. 힙이 초기화 2. mm_malloc이 적당한 fit를 찾지 못했을때
-*/
 static void *extend_heap(size_t words){
 
-    //printf("extend_heap() \n");
+    printf("extend_heap() \n");
 
     char *bp;
     size_t size;
@@ -278,10 +259,11 @@ static void *extend_heap(size_t words){
 }
 
 
+
 //인자로 받은 크기(size)에 맞는 블록을 찾아 할당하거나, 적절한 크기의 새로운 블록을 할당하고 반환
 void *mm_malloc(size_t size)
 {
-    //printf("mm_malloc() \n");
+    printf("mm_malloc() \n");
 
     size_t asize; /*Adjusted block size*/
     size_t extendsize; /* Amount to extend heap if no fit*/
@@ -291,13 +273,9 @@ void *mm_malloc(size_t size)
     if(size == 0)
         return NULL;
 
-    /* Adjust block size to include overhead and alignment reqs. */
-    if(size <= DSIZE) //DSIZE보다 작다면
-        asize = 2*DSIZE; //최소 크기인 2*DSIZE(헤더, 푸터, 최소 1워드 크기에 데이터)로 할당
-    else
-        //asize = DSIZE의 배수
-        asize = DSIZE * ((size + (DSIZE) + (DSIZE-1)) / DSIZE); //DSIZE: 헤더와푸터: 8bytes
-    
+    //find_2^n size 함수 호출해야함!!!!!!
+    asize = find_size(size); //2^n size
+
     /* Search the free list for a fit */
     if((bp = find_fit(asize)) != NULL){
         place(bp,asize); // 실제로 메모리를 할당받고, 값을 업데이트
@@ -315,19 +293,15 @@ void *mm_malloc(size_t size)
 //힙을 탐색 해 요구하는 메모리 공간보다 큰 가용 블록의 주소를 반환
 static void *find_fit(size_t asize){
 
-   // printf("find_fit()\n");
+    printf("find_fit()\n");
 
     void *bp;
     void *root;
     char *root_bp;
 
     int root_array_index =  find_index(asize);
-   // printf("asize: %d\n", asize);
-    //root = root_array[root_array_index]; //해당 배열안에 담긴 freeblock 주소
 
-    //for(root_bp =&root_array[root_array_index]; root_bp == &root_array[length]; )
     for(int i = root_array_index; i < NUM_LIST; i++){
-       // printf("root_array[i] %x\n", root_array[i]);
         if(root_array[i] == NULL){
             continue;
         }
@@ -342,34 +316,27 @@ static void *find_fit(size_t asize){
 
 //요구 메모리를 할당할 수 있는 가용블록을 할당함 , 분할 가능 시 분할
 static void place(void *bp, size_t asize){
-   // printf("place()\n");
+   printf("place()\n");
 
     size_t csize = GET_SIZE(HDRP(bp)); //현재 블록의 크기
-    if((csize - asize) >= (2*DSIZE)){ //분할 후 남은 블록의 크기가 최소블록 크기(16bytes) 일 시
-        removeFreeBlock(bp);
-        PUT(HDRP(bp),PACK(asize,1));
-        PUT(FTRP(bp),PACK(asize,1));
+    
+    removeFreeBlock(bp); // 일단 잘라
 
-        bp = NEXT_BLKP(bp);
-
-        PUT(HDRP(bp),PACK(csize - asize,0)); //남은 공간 가용 상태 변경
-        PUT(FTRP(bp),PACK(csize - asize,0));
-
-        putFreeBlock(bp);
-    }
-    else{
-        removeFreeBlock(bp);
-        PUT(HDRP(bp),PACK(csize,1));
-        PUT(FTRP(bp),PACK(csize,1));
+    while(1){
+        if(csize == asize){
+            //할당
+            PUT(HDRP(bp),PACK(asize,1));
+            PUT(FTRP(bp),PACK(asize,1));
+            break;
+        }
+        csize /= 2; //반으로 나눔
+        putFreeBlock((long*)bp+csize); //csize 타입은 long
     }
 }
 
-/*
- * mm_free - Freeing a block does nothing.
- */
 void mm_free(void *bp) // 해당 주소의 블록을 반환
 {
-  //  printf("mm_free()\n");
+    printf("mm_free()\n");
     size_t size = GET_SIZE(HDRP(bp)); //bp의 메모리 크기
 
     PUT(HDRP(bp), PACK(size,0));
@@ -377,12 +344,9 @@ void mm_free(void *bp) // 해당 주소의 블록을 반환
     coalesce(bp);
 }
 
-/*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
- */
-//mm_malloc 함수에 의해 이전에 할당된 메모리 블록의 크기를 조정하는 사용되는 함수
 void *mm_realloc(void *ptr, size_t size)
 {
+    printf("mm_realloc()\n");
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
@@ -391,8 +355,6 @@ void *mm_realloc(void *ptr, size_t size)
     if (newptr == NULL)
       return NULL;
 
-    //재할당되는 메모리 블록의 크기를 결정
-    //copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE); //이전 메모리 블록의 크기가 이전 ptr이 가르키는 메모리 블록 바로 앞에 있다고 가정
     copySize = GET_SIZE(HDRP(oldptr)); //원래 블록의 사이즈
 
     if (size < copySize)
