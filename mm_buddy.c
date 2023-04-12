@@ -58,7 +58,7 @@ team_t team = {
 #define SUCC_freep(bp) (*(char **)(bp+WSIZE))
 #define PRED_freep(bp) (*(char **)(bp))
 
-#define NUM_LIST 12 // 일단 정의..
+#define NUM_LIST 16 // 일단 정의..
 
 static char *heap_listp;
 static char *free_listp;
@@ -68,7 +68,7 @@ static char *root_array[NUM_LIST];
 int mm_init(void)
 {
     /*create the initial empty heap*/
-   printf("mm_init() \n");
+   //printf("mm_init() \n");
 
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
         return -1;
@@ -88,54 +88,58 @@ int mm_init(void)
 }
 
 static int find_index(size_t size){
-   printf("find_index() \n");
+  // printf("find_index() \n");
 
-
-//    for (int i = 0; i<NUM_LIST; i++){
-//         if(size < 1<<i){
-//             return i;
-//         }
-//         return NULL;
-//    }
-
-    if(size >= (1<<4) && size <(1<<5)){
-        return 4;
-    } 
-    else if(size >= (1<<5) && size <(1<<6)){
-        return 5;
-    }
-    else if(size >= (1<<6) && size <(1<<7)){
-        return 6;
-    }
-    else if(size >= (1<<7) && size <(1<<8)){
-        return 7;
-    }
-    else if(size >= (1<<8) && size <(1<<9)){
-        return 8;
-    }
-    else if(size >= (1<<9) && size <(1<<10)){
-        return 9;
-    }
-    else if(size >= (1<<10) && size <(1<<11)){
-        return 10;
-    }
-    else if(size >= (1<<11) && size <(1<<12)){
-        return 11;
-    } 
-}
-static int find_size(size_t size){
-    printf("find_size() \n");
-    for(int i=4; i<NUM_LIST;i++){ //NUM_LIST+1 ???
-        if(size <= (1<<i)){
-            return (1<<i);
+   for (int i = 3; i<NUM_LIST; i++){
+        if(i ==16){
+            return 16;
         }
-    }
-    return NULL;
+        if(size <= 1<<i+1){
+            return i;
+        }
+   }
+
+    // if(size <= (1<<4)){
+    //     return 3;
+    // }
+    // else if( size <= (1<<5)){
+    //     return 4;
+    // } 
+    // else if(size <=(1<<6)){
+    //     return 5;
+    // }
+    // else if(size <=(1<<7)){
+    //     return 6;
+    // }
+    // else if(size <=(1<<8)){
+    //     return 7;
+    // }
+    // else if(size <=(1<<9)){
+    //     return 8;
+    // }
+    // else if(size <=(1<<10)){
+    //     return 9;
+    // }
+    // else if(size <=(1<<11)){
+    //     return 10;
+    // }
+    // else{
+    //     return 11;
+    // } 
 }
+// static int find_size(size_t size){
+//    // printf("find_size() \n");
+//     for(int i=4; i<NUM_LIST;i++){ //NUM_LIST+1 ???
+//         if(size <= (1<<i)){
+//             return (1<<i);
+//         }
+//     }
+//     return NULL;
+// }
 
 static void putFreeBlock(void *bp){
 
-    printf("putFreeBlock() \n");
+  //  printf("putFreeBlock() \n");
 
     size_t bp_size = GET_SIZE(HDRP(bp)); //1. bp_size를 가져옴
 
@@ -161,13 +165,17 @@ static void putFreeBlock(void *bp){
 
 static void removeFreeBlock(void *bp){
 
-    printf("removeFreeBlock() \n");
+   /// printf("removeFreeBlock() \n");
 
     size_t bp_size = GET_SIZE(HDRP(bp)); //1. bp_size를 가져옴
     int root_array_index = find_index(bp_size); //해당 크기에 해당하는 root_array index가져옴
 
+    // printf("bp %x\n",bp);
+    // printf("root_array[root_array_index] %x\n",root_array[root_array_index]);
+
     if(bp == root_array[root_array_index]){ //freeblock 맨 앞이면
         root_array[root_array_index] = SUCC_freep(bp);
+        //printf("SUCC_freep(bp): %x\n",SUCC_freep(bp));
         if(SUCC_freep(bp) != NULL){
             PRED_freep(SUCC_freep(bp)) = &root_array[root_array_index]; 
         }
@@ -187,15 +195,18 @@ static void removeFreeBlock(void *bp){
 //블록 연결하기
 static void *coalesce(void *bp){
 
-printf("coalesce() \n");
-    size_t prev_alloc;
-    size_t next_alloc;
+//printf("coalesce() \n");
+    // size_t prev_alloc;
+    // size_t next_alloc;
 
-    prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));        
-    next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    // prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));        
+    // next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp)); 
 
-
+    // if(size == CHUNKSIZE){
+    //     putFreeBlock(bp);
+    //     return bp;
+    // }
     //next_bp = bp+size; 다음 블록 주소
     // 현재 bp와 size 를 '&' 비트 연산한 결과의 맨 첫자리 가 1이면 난 오른쪽, 0이면 왼쪽
 
@@ -203,11 +214,11 @@ printf("coalesce() \n");
     while(1){
         if(!(((char*)bp-(heap_listp+4)) & size)){ //AND연산 결과가 0 : 나는 왼쪽임
             // buddy인 경우: 옆 블록이 free이고, size가 같다면 합쳐줌
-            if(GET_ALLOC(HDRP((long*)bp+size)) == 0 && GET_SIZE(HDRP((long*)bp+size)) == size){
-                removeFreeBlock((long*)bp+size);
+            if(GET_ALLOC(HDRP(bp+size)) == 0 && GET_SIZE(HDRP(bp+size)) == size){
+                removeFreeBlock(bp+size);
                 PUT(HDRP(bp), PACK(2*size,0));
                 PUT(FTRP(bp), PACK(2*size,0));
-                putFreeBlock(bp);
+                size= 2*size;
             }
             else{ //buddy가 아닌 경우
                 putFreeBlock(bp);
@@ -216,16 +227,13 @@ printf("coalesce() \n");
         }
         else{ //나는 오른쪽
             //내 왼쪽이 buddy라면
-            printf("HDRP((long*)bp-size): %x\n",HDRP((long*)bp-size));
-            printf("HDRP((long*)bp-size): %x\n",HDRP(bp));
-            printf("GET_SIZE(HDRP((long*)bp-size)): %x\n",GET_SIZE(HDRP((long*)bp-size)));
             // printf("GET_ALLOC(HDRP((long*)bp-size)): %d\n",GET_ALLOC(HDRP((long*)bp-size)));
             // printf("GET_SIZE(HDRP((long*)bp-size)): %d\n",GET_SIZE(HDRP((long*)bp-size)));
-            if(GET_ALLOC(HDRP((long*)bp-size)) == 0 && GET_SIZE(HDRP((long*)bp-size)) == size){
-                removeFreeBlock((long*)bp-size);
-                PUT(HDRP((long*)bp-size), PACK(2*size,0));
+            if(GET_ALLOC((bp-size)) == 0 && GET_SIZE((bp-size)) == size){
+                removeFreeBlock(bp-size);
+                PUT(HDRP(bp-size), PACK(2*size,0));
                 PUT(FTRP(bp), PACK(2*size,0));       
-                putFreeBlock((long*)bp-size);
+                size= 2*size;
             }
             else{
                 putFreeBlock(bp);
@@ -239,7 +247,7 @@ printf("coalesce() \n");
  
 static void *extend_heap(size_t words){
 
-    printf("extend_heap() \n");
+    //printf("extend_heap() \n");
 
     char *bp;
     size_t size;
@@ -253,7 +261,6 @@ static void *extend_heap(size_t words){
     PUT(HDRP(bp), PACK(size,0)); /*Free block header*/
     PUT(FTRP(bp), PACK(size,0)); /*Free block footer*/
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0,1)); /*New epilogue header*/
-
     /*Coalesce if the previous block was free : 이전 블록이 사용가능 시 병합*/
     return coalesce(bp);   
 }
@@ -263,7 +270,7 @@ static void *extend_heap(size_t words){
 //인자로 받은 크기(size)에 맞는 블록을 찾아 할당하거나, 적절한 크기의 새로운 블록을 할당하고 반환
 void *mm_malloc(size_t size)
 {
-    printf("mm_malloc() \n");
+   // printf("mm_malloc() \n");
 
     size_t asize; /*Adjusted block size*/
     size_t extendsize; /* Amount to extend heap if no fit*/
@@ -273,10 +280,19 @@ void *mm_malloc(size_t size)
     if(size == 0)
         return NULL;
 
+    if(size <= DSIZE) //DSIZE보다 작다면
+        asize = 2*DSIZE; //최소 크기인 2*DSIZE(헤더, 푸터, 최소 1워드 크기에 데이터)로 할당
+    else{
     //find_2^n size 함수 호출해야함!!!!!!
-    asize = find_size(size); //2^n size
+   // asize = find_size(size); //2^n size
+        asize = 2*DSIZE;
+        while (size +DSIZE > asize)
+        {
+            asize <<= 1;
+        }
+    }
 
-    /* Search the free list for a fit */
+    //printf("asize %d\n",asize);
     if((bp = find_fit(asize)) != NULL){
         place(bp,asize); // 실제로 메모리를 할당받고, 값을 업데이트
         return bp;
@@ -293,7 +309,7 @@ void *mm_malloc(size_t size)
 //힙을 탐색 해 요구하는 메모리 공간보다 큰 가용 블록의 주소를 반환
 static void *find_fit(size_t asize){
 
-    printf("find_fit()\n");
+    //printf("find_fit()\n");
 
     void *bp;
     void *root;
@@ -302,7 +318,7 @@ static void *find_fit(size_t asize){
     int root_array_index =  find_index(asize);
 
     for(int i = root_array_index; i < NUM_LIST; i++){
-        if(root_array[i] == NULL){
+        if(root_array[i] == 0){
             continue;
         }
         for(bp=root_array[i]; bp != NULL; bp=SUCC_freep(bp)){
@@ -316,27 +332,31 @@ static void *find_fit(size_t asize){
 
 //요구 메모리를 할당할 수 있는 가용블록을 할당함 , 분할 가능 시 분할
 static void place(void *bp, size_t asize){
-   printf("place()\n");
 
     size_t csize = GET_SIZE(HDRP(bp)); //현재 블록의 크기
-    
+   // printf("csize %d\n", csize);
+         
     removeFreeBlock(bp); // 일단 잘라
 
-    while(1){
+    while(1){          
         if(csize == asize){
             //할당
             PUT(HDRP(bp),PACK(asize,1));
             PUT(FTRP(bp),PACK(asize,1));
             break;
         }
-        csize /= 2; //반으로 나눔
-        putFreeBlock((long*)bp+csize); //csize 타입은 long
+        // printf("csize %d\n",csize);
+        // printf("asize %d\n",asize);
+        csize = csize / 2; //반으로 나눔
+        PUT(HDRP(bp+csize),PACK(csize,0));
+        PUT(FTRP(bp+csize),PACK(csize,0));
+        putFreeBlock(bp+csize); //csize 타입은 long
     }
 }
 
 void mm_free(void *bp) // 해당 주소의 블록을 반환
 {
-    printf("mm_free()\n");
+   // printf("mm_free()\n");
     size_t size = GET_SIZE(HDRP(bp)); //bp의 메모리 크기
 
     PUT(HDRP(bp), PACK(size,0));
@@ -346,7 +366,7 @@ void mm_free(void *bp) // 해당 주소의 블록을 반환
 
 void *mm_realloc(void *ptr, size_t size)
 {
-    printf("mm_realloc()\n");
+   // printf("mm_realloc()\n");
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
